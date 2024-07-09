@@ -55,6 +55,7 @@ enum class CanPlayTypeResult;
 enum class CanvasFillRule;
 enum class CanvasTextAlign;
 enum class CanvasTextBaseline;
+enum class CompressionFormat;
 enum class DOMParserSupportedType;
 enum class EndingType;
 enum class ImageSmoothingQuality;
@@ -628,7 +629,10 @@ class Selection;
 
 namespace Web::Streams {
 class ByteLengthQueuingStrategy;
+class CompressionStream;
 class CountQueuingStrategy;
+class DecompressionStream;
+class GenericTransformStreamMixin;
 class ReadableByteStreamController;
 class ReadableStream;
 class ReadableStreamBYOBReader;

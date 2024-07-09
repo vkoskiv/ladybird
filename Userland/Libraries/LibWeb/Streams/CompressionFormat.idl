@@ -1,0 +1,7 @@
+// https://compression.spec.whatwg.org//#supported-formats
+enum CompressionFormat {
+	"deflate",
+	"deflate-raw",
+	"gzip"
+};
+

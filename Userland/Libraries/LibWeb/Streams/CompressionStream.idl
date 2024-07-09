@@ -1,0 +1,7 @@
+#import <Streams/GenericTransformStream.idl>
+#import <Streams/CompressionFormat.idl>
+[Exposed=*]
+interface CompressionStream {
+	constructor(CompressionFormat format);
+};
+CompressionStream includes GenericTransformStream;
