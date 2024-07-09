@@ -663,7 +663,10 @@ set(SOURCES
     StorageAPI/StorageManager.cpp
     Streams/AbstractOperations.cpp
     Streams/ByteLengthQueuingStrategy.cpp
+    Streams/CompressionStream.cpp
     Streams/CountQueuingStrategy.cpp
+    Streams/DecompressionStream.cpp
+    Streams/GenericTransformStream.cpp
     Streams/ReadableByteStreamController.cpp
     Streams/ReadableStream.cpp
     Streams/ReadableStreamBYOBReader.cpp

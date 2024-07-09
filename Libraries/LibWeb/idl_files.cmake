@@ -1,4 +1,4 @@
-# This file is included from "Meta/CMake/libweb_data.cmake"
+# This file is included from "Meta/CMake/libweb_generators.cmake"
 # It is defined here so that there is no need to go to the Meta directory when adding new idl files
 
 libweb_js_bindings(Animations/Animation)
@@ -272,7 +272,10 @@ libweb_js_bindings(ResizeObserver/ResizeObserver)
 libweb_js_bindings(ResizeObserver/ResizeObserverEntry)
 libweb_js_bindings(ResizeObserver/ResizeObserverSize)
 libweb_js_bindings(Streams/ByteLengthQueuingStrategy)
+libweb_js_bindings(Streams/CompressionStream)
 libweb_js_bindings(Streams/CountQueuingStrategy)
+libweb_js_bindings(Streams/DecompressionStream)
+# libweb_js_bindings(Streams/GenericTransformStream)
 libweb_js_bindings(Streams/ReadableByteStreamController)
 libweb_js_bindings(Streams/ReadableStream)
 libweb_js_bindings(Streams/ReadableStreamBYOBReader)
