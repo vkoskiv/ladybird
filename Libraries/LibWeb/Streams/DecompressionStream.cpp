@@ -50,8 +50,8 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
     // 2. Set this's format to format.
     decompression_stream->m_format = format;
 
-    // 3. Let transformAlgorithm be an algorithm which takes a chunk argument and runs the compress and enqueue a chunk algorithm with this and chunk.
-    auto compress_algorithm = GC::create_function(realm.heap(), [&realm, decompression_stream](JS::Value chunk) -> GC::Ref<WebIDL::Promise> {
+    // 3. Let transformAlgorithm be an algorithm which takes a chunk argument and runs the decompress and enqueue a chunk algorithm with this and chunk.
+    auto decompress_algorithm = GC::create_function(realm.heap(), [&realm, decompression_stream](JS::Value chunk) -> GC::Ref<WebIDL::Promise> {
         // https://compression.spec.whatwg.org//#decompress-and-enqueue-a-chunk
         // 1. If chunk is not a BufferSource type, then throw a TypeError.
         // FIXME: Not sure if this is a mistake in the spec, but we can't actually throw a TypeError
@@ -83,7 +83,7 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
         dbgln("DecompressionStream read {} bytes", read_bytes.size());
 
         // 3. If buffer is empty, return.
-        if (read_bytes.size() == 0)
+        if (read_bytes.is_empty())
             return WebIDL::create_resolved_promise(realm, JS::js_undefined());
 
         // 4. Split buffer into one or more non-empty pieces and convert them into Uint8Arrays.
@@ -150,7 +150,7 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
     auto transform_stream = realm.heap().allocate<TransformStream>(realm);
 
     // 6. Set up this's transform with transformAlgorithm set to transformAlgorithm and flushAlgorithm set to flushAlgorithm.
-    Streams::transform_stream_set_up(transform_stream, compress_algorithm, flush_algorithm);
+    Streams::transform_stream_set_up(transform_stream, decompress_algorithm, flush_algorithm);
 
     decompression_stream->m_transform = transform_stream;
 
