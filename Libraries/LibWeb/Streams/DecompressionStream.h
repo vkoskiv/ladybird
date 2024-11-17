@@ -30,13 +30,14 @@ public:
     GC::Ref<WritableStream> writable() { return m_transform->writable(); }
 
 private:
-    explicit DecompressionStream(JS::Realm& realm, DecompressorContext context);
+    explicit DecompressionStream(JS::Realm& realm, DecompressorContext context, NonnullOwnPtr<AllocatingMemoryStream> input_stream);
     virtual void initialize(JS::Realm&) override;
     virtual void visit_edges(Cell::Visitor&) override;
     Web::Bindings::CompressionFormat m_format;
     // GC::Ptr<GenericTransformStreamMixin> m_transform;
     GC::Ptr<TransformStream> m_transform;
     DecompressorContext m_context;
+    NonnullOwnPtr<AllocatingMemoryStream> m_input_stream;
 };
 
 }

@@ -138,7 +138,7 @@ WebIDL::ExceptionOr<GC::Ref<CompressionStream>> CompressionStream::construct_imp
         }
 
         ByteBuffer buffer = buf_or_err.value();
-        dbgln("flush_algorigthm read {} bytes", buffer.size());
+        dbgln("CompressionStream flush {} bytes", buffer.size());
         
         // 2. If buffer is empty, return.
         if (buffer.is_empty())

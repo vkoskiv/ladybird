@@ -21,16 +21,19 @@ namespace Web::Streams {
 
 GC_DEFINE_ALLOCATOR(DecompressionStream);
 
-static ErrorOr<DecompressorContext> decompressor_from_type(Bindings::CompressionFormat format, NonnullOwnPtr<AK::AllocatingMemoryStream> stream) {
+static ErrorOr<DecompressorContext> decompressor_from_type(Bindings::CompressionFormat format, MaybeOwned<Stream> stream) {
     switch (format) {
     case Bindings::CompressionFormat::Deflate: {
+        dbgln("creating ZlibDecompressor");
         return TRY(ZlibDecompressor::create(move(stream)));
     }
     case Bindings::CompressionFormat::DeflateRaw: {
+        dbgln("creating DeflateDecompressor");
         auto bit_stream = make<LittleEndianInputBitStream>(move(stream));
         return TRY(DeflateDecompressor::construct(move(bit_stream)));
     }
     case Bindings::CompressionFormat::Gzip: {
+        dbgln("creating GzipDecompressor");
         return make<GzipDecompressor>(move(stream));
     }
     }
@@ -41,8 +44,8 @@ static ErrorOr<DecompressorContext> decompressor_from_type(Bindings::Compression
 WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct_impl(JS::Realm& realm, Bindings::CompressionFormat format)
 {
     auto input_stream = make<AK::AllocatingMemoryStream>();
-    auto context = MUST(decompressor_from_type(format, move(input_stream)));
-    auto decompression_stream = realm.create<DecompressionStream>(realm, move(context));
+    auto context = MUST(decompressor_from_type(format, MaybeOwned<Stream>(*input_stream)));
+    auto decompression_stream = realm.create<DecompressionStream>(realm, move(context), move(input_stream));
 
     // 1. If format is unsupported in DecompressionStream, then throw a TypeError.
     // Already handled by IDL layer
@@ -56,29 +59,35 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
         // 1. If chunk is not a BufferSource type, then throw a TypeError.
         // FIXME: Not sure if this is a mistake in the spec, but we can't actually throw a TypeError
         // from a transformAlgorithm at the moment, so I'll return a rejected promise with the type error instead for now.
-        if (!chunk.is_object() || !is<WebIDL::BufferSource>(chunk.as_object())) {
-            return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "Chunk not a BufferSource"sv));
-        }
+        // FIXME: Same in CompressionStream, no way to check for BufferSource, as far as I can tell
+        // if (!chunk.is_object() || !is<WebIDL::BufferSource>(chunk.as_object())) {
+        //     return WebIDL::create_rejected_promise(realm, JS::TypeError::create(realm, "Chunk not a BufferSource"sv));
+        // }
 
         // 2. Let buffer be the result of decompressing chunk with cs's format and context.
         auto chunk_view = realm.create<WebIDL::ArrayBufferView>(chunk.as_object());
         auto bytebuffer = MUST(WebIDL::get_buffer_source_copy(*chunk_view->raw_object()));
         ReadonlyBytes data = bytebuffer.bytes();
 
-        size_t bytes = MUST(decompression_stream->m_context.visit(
-            [&](auto& ctx) -> ErrorOr<size_t> {
-                return ctx->write_some(data);
-            }
-        ));
-        (void)bytes;
-        dbgln("DecompressionStream wrote {} bytes", bytes);
+        ErrorOr<size_t> written_bytes = decompression_stream->m_input_stream->write_some(data);
+        if (written_bytes.is_error()) {
+            dbgln("DecompressionStream decompress_algorithm write goofed: {}", written_bytes.error());
+            return WebIDL::create_resolved_promise(realm, JS::js_undefined());
+        }
+        (void)written_bytes;
+        dbgln("DecompressionStream wrote {} bytes", written_bytes);
 
         ByteBuffer buffer;
-        Bytes read_bytes = MUST(decompression_stream->m_context.visit(
+        ErrorOr<Bytes> read_bytes_or_error = decompression_stream->m_context.visit(
             [&](auto& ctx) -> ErrorOr<Bytes> {
                 return ctx->read_some(buffer);
             }
-        ));
+        );
+        if (read_bytes_or_error.is_error()) {
+            dbgln("DecompressionStream decompress_algorithm read goofed: {}", read_bytes_or_error.error());
+            return WebIDL::create_resolved_promise(realm, JS::js_undefined());
+        }
+        Bytes read_bytes = read_bytes_or_error.release_value();
 
         dbgln("DecompressionStream read {} bytes", read_bytes.size());
 
@@ -100,11 +109,7 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
     auto flush_algorithm = GC::create_function(realm.heap(), [&realm, decompression_stream]() -> GC::Ref<WebIDL::Promise> {
 
         // 1. Let buffer be the result of decompressing an empty input with cs's format and context, with the finish flag.
-        decompression_stream->m_context.visit(
-            [](auto& ctx) -> void {
-                ctx->close();
-            }
-        );
+        decompression_stream->m_input_stream->close();
 
         ErrorOr<ByteBuffer> buf_or_err = decompression_stream->m_context.visit(
             [&](auto& ctx) -> ErrorOr<ByteBuffer> {
@@ -112,9 +117,11 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
             }
         );
 
-        if (buf_or_err.is_error())
+        if (buf_or_err.is_error()) {
+            dbgln("DecompressionStream flush goofed: {}", buf_or_err.error());
             return WebIDL::create_resolved_promise(realm, JS::js_undefined());
             // return WebIDL::create_rejected_promise(realm, JS::PrimitiveString::create(realm.vm(), "EOF not reached"sv));
+        }
 
         ByteBuffer buffer = buf_or_err.value();
 
@@ -136,6 +143,7 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
 
         // 5. For each Uint8Array array, enqueue array in cs's transform.
         auto bytes_length = buffer.size();
+        dbgln("DecompressionStream flush {} bytes", bytes_length);
         auto array_buffer = JS::ArrayBuffer::create(realm, move(buffer));
         auto uint8_array = JS::Uint8Array::create(realm, bytes_length, *array_buffer);
         auto result = Streams::transform_stream_default_controller_enqueue(*decompression_stream->m_transform->controller(), uint8_array);
@@ -157,8 +165,8 @@ WebIDL::ExceptionOr<GC::Ref<DecompressionStream>> DecompressionStream::construct
     return decompression_stream;
 }
 
-DecompressionStream::DecompressionStream(JS::Realm& realm, DecompressorContext context)
-    : Bindings::PlatformObject(realm), m_context(move(context))
+DecompressionStream::DecompressionStream(JS::Realm& realm, DecompressorContext context, NonnullOwnPtr<AllocatingMemoryStream> input_stream)
+    : Bindings::PlatformObject(realm), m_context(move(context)), m_input_stream(move(input_stream))
 {
 }
 

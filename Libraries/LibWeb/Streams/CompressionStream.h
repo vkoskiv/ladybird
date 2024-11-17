@@ -29,14 +29,14 @@ public:
     GC::Ref<WritableStream> writable() { return m_transform->writable(); }
 
 private:
-    explicit CompressionStream(JS::Realm& realm, CompressorContext context, NonnullOwnPtr<AK::AllocatingMemoryStream> output_stream);
+    explicit CompressionStream(JS::Realm& realm, CompressorContext context, NonnullOwnPtr<AllocatingMemoryStream> output_stream);
     virtual void initialize(JS::Realm&) override;
     virtual void visit_edges(Cell::Visitor&) override;
     Web::Bindings::CompressionFormat m_format;
     // JS::GCPtr<GenericTransformStreamMixin> m_transform;
     GC::Ptr<TransformStream> m_transform;
     CompressorContext m_context;
-    NonnullOwnPtr<AK::AllocatingMemoryStream> m_output_stream;
+    NonnullOwnPtr<AllocatingMemoryStream> m_output_stream;
 };
 
 }
